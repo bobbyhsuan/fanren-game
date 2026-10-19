@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>凡人修仙傳：尋仙緣</title>
+<meta name="description" content="《凡人修仙傳》同人互動網頁：尋仙緣（抽卡）與藏寶閣（3D 立牌展示）。">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;900&display=swap" rel="stylesheet">
+
+<!-- UI：Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- 3D：Three.js r128 + OrbitControls -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<!-- 動畫：GSAP -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+
+<style>
+:root{
+  --ink:#0b1311; --ink-2:#12201d; --ink-3:#1b2f2a;
+  --jade:#6cc2a8; --jade-d:#2f6b5c;
+  --paper:#efe6cf; --paper-d:#cdbf9a; --paper-ink:#2a2418;
+  --gold:#d9b25a; --cinnabar:#b9382b; --cinnabar-l:#d4503f;
+  --heaven:#f5c04a; --earth:#b07cff; --human:#4fd6d0;
+  --c:#f5c04a; --rgb:245,192,74;
+  font-family:'Noto Serif TC','Songti TC','PMingLiU','Source Han Serif TC','Noto Serif CJK TC',serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background:linear-gradient(180deg,#0e1c1a 0%,#142824 52%,#0b1311 100%);
+  color:var(--paper); overflow:hidden; -webkit-font-smoothing:antialiased;
+}
+[hidden]{display:none!important}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
+button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.muted{color:rgba(239,230,207,.62)}
+
+/* ---------- 背景：水墨山水 ---------- */
+#scene-bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+#scene-bg svg{position:absolute;inset:0;width:100%;height:100%}
+.moon{position:absolute;right:11%;top:9%;width:min(20vmin,220px);aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(circle at 40% 38%,#f6efd8 0%,#e4d9b4 55%,#cbbf98 100%);
+  box-shadow:0 0 90px 30px rgba(239,230,207,.16);opacity:.88}
+.mist{position:absolute;left:-30%;width:160%;height:26%;border-radius:50%;
+  background:radial-gradient(ellipse at center,rgba(214,232,224,.20),transparent 68%);filter:blur(18px);
+  animation:drift 48s ease-in-out infinite alternate}
+.mist.m1{bottom:18%}
+.mist.m2{bottom:34%;opacity:.7;animation-duration:70s;animation-direction:alternate-reverse}
+@keyframes drift{from{transform:translateX(-6%)}to{transform:translateX(6%)}}
+
+/* ---------- App 版面 ---------- */
+.app{position:fixed;inset:0;z-index:1;display:flex;flex-direction:column}
+.topbar{height:62px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 22px;
+  background:linear-gradient(180deg,rgba(8,14,13,.9),rgba(8,14,13,.62));backdrop-filter:blur(6px);
+  border-bottom:1px solid rgba(217,178,90,.35);position:relative;z-index:5}
+.brand{display:flex;align-items:center;gap:12px;text-align:left}
+.seal{display:inline-grid;place-items:center;width:38px;height:38px;background:var(--cinnabar);color:#f7e9d4;
+  font-weight:900;font-size:22px;border-radius:4px;transform:rotate(-3deg);box-shadow:inset 0 0 0 2px rgba(247,233,212,.55)}
+.brand-text{display:flex;flex-direction:column;line-height:1.15}
+.brand-text b{font-size:19px;font-weight:900;letter-spacing:.14em}
+.brand-text i{font-style:normal;font-size:13px;color:var(--gold);letter-spacing:.5em}
+.top-right{display:flex;align-items:center;gap:12px}
+.chip{display:flex;align-items:center;gap:9px;padding:6px 14px;border:1px solid rgba(239,230,207,.25);border-radius:999px;
+  background:rgba(239,230,207,.06);font-size:15px;position:relative;overflow:hidden}
+.chip .lbl{color:rgba(239,230,207,.6);font-size:13px}
+#hud-name{max-width:11em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.stone-icon{width:16px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#d6fff0,#5fd0ac 55%,#1f7a62);
+  box-shadow:0 0 8px rgba(108,194,168,.8)}
+#hud-stones{font-weight:900;font-size:17px;min-width:3.2em;text-align:right;font-variant-numeric:tabular-nums}
+.idle{font-size:12px;color:rgba(239,230,207,.6);font-variant-numeric:tabular-nums}
+.idle-bar{position:absolute;left:0;bottom:0;height:2px;width:100%;background:rgba(239,230,207,.1)}
+.idle-bar i{display:block;height:100%;width:0;background:var(--jade)}
+.btn-ghost{padding:7px 16px;border:1px solid rgba(217,178,90,.6);border-radius:4px;color:var(--gold);font-size:14px;transition:background .2s,color .2s}
+.btn-ghost:hover{background:var(--gold);color:var(--ink)}
+
+.shell{flex:1;display:flex;min-height:0}
+.side{width:178px;flex:none;padding:34px 0 0;background:linear-gradient(90deg,rgba(8,14,13,.78),rgba(8,14,13,.35));
+  border-right:1px solid rgba(239,230,207,.1);display:flex;flex-direction:column;gap:8px}
+.nav-btn{display:block;width:100%;text-align:left;padding:16px 24px 16px 26px;font-size:21px;font-weight:600;letter-spacing:.3em;
+  color:rgba(239,230,207,.62);border-left:4px solid transparent;transition:all .2s}
+.nav-btn:hover{color:var(--paper);background:rgba(239,230,207,.05)}
+.nav-btn.active{color:var(--paper);border-left-color:var(--cinnabar);background:linear-gradient(90deg,rgba(185,56,43,.26),transparent)}
+.main{flex:1;position:relative;min-width:0}
+.view{position:absolute;inset:0}
+
+/* ---------- 首頁 ---------- */
+.home{display:flex;align-items:center;justify-content:space-between;padding:0 6vw 0 5vw;gap:4vw}
+.home-left{max-width:480px}
+.home-hello{font-size:clamp(20px,2.2vw,28px);font-weight:600;line-height:1.6;margin:0 0 10px}
+.home-hello em{font-style:normal;color:var(--gold)}
+.home-note{color:rgba(239,230,207,.7);line-height:1.9;font-size:16px;margin:0 0 30px}
+.entry-row{display:flex;gap:16px;flex-wrap:wrap}
+.entry{min-width:200px;padding:18px 22px;text-align:left;border:1px solid rgba(217,178,90,.5);border-radius:3px;
+  background:linear-gradient(135deg,rgba(18,32,29,.86),rgba(18,32,29,.55));transition:transform .2s,border-color .2s,background .2s}
+.entry:hover{transform:translateY(-3px);border-color:var(--gold);background:linear-gradient(135deg,rgba(40,70,60,.9),rgba(18,32,29,.6))}
+.entry b{display:block;font-size:24px;letter-spacing:.25em;margin-bottom:6px}
+.entry span{font-size:14px;color:rgba(239,230,207,.66)}
+.home-stats{margin-top:26px;font-size:15px;color:rgba(239,230,207,.7);display:flex;gap:26px}
+.home-stats b{color:var(--paper);font-size:20px;margin:0 3px}
+.vtitle{display:flex;flex-direction:row-reverse;gap:18px;align-items:flex-start;height:min(74vh,640px);flex:none;user-select:none}
+.vtitle .big{writing-mode:vertical-rl;font-weight:900;font-size:min(15vh,128px);letter-spacing:.14em;line-height:1;
+  color:var(--paper);text-shadow:0 4px 28px rgba(0,0,0,.6)}
+.vtitle .small{writing-mode:vertical-rl;font-weight:600;font-size:min(5.4vh,44px);letter-spacing:.5em;color:var(--gold);margin-top:6px}
+.vtitle .stamp{writing-mode:horizontal-tb;align-self:flex-end;background:var(--cinnabar);color:#f7e9d4;font-size:20px;
+  width:46px;height:46px;display:grid;place-items:center;border-radius:3px;font-weight:900;transform:rotate(4deg);margin-bottom:6px}
+
+/* ---------- 尋仙緣 ---------- */
+.collage{position:absolute;inset:0;display:grid;grid-auto-rows:1fr;gap:0;filter:blur(1.5px) saturate(.9) brightness(.55)}
+.collage img{width:100%;height:100%;object-fit:cover;display:block}
+.collage-veil{position:absolute;inset:0;
+  background:linear-gradient(90deg,rgba(8,14,13,.94) 0%,rgba(8,14,13,.55) 36%,rgba(8,14,13,.2) 70%,rgba(8,14,13,.55) 100%),
+             linear-gradient(0deg,rgba(8,14,13,.8),transparent 38%)}
+.draw-ui{position:absolute;inset:0;padding:22px 24px;display:flex;justify-content:space-between;align-items:stretch;pointer-events:none}
+.draw-panel{pointer-events:auto;width:340px;max-height:100%;overflow:auto;padding:18px 20px 20px;
+  background:rgba(10,18,16,.78);border:1px solid rgba(217,178,90,.38);border-radius:4px;backdrop-filter:blur(8px)}
+.pool-tabs{display:flex;gap:0;margin-bottom:16px;border:1px solid rgba(239,230,207,.28);border-radius:3px;overflow:hidden}
+.pool-tab{flex:1;padding:10px 0;font-size:17px;letter-spacing:.3em;color:rgba(239,230,207,.65);transition:background .2s,color .2s}
+.pool-tab.active{background:var(--cinnabar);color:#f7e9d4;font-weight:700}
+.pool-tab:not(.active):hover{background:rgba(239,230,207,.08)}
+.draw-panel h2{margin:4px 0 2px;font-size:24px;font-weight:900;letter-spacing:.2em}
+.draw-panel .sub{margin:0 0 16px;font-size:14px}
+.rates{display:grid;gap:8px;margin-bottom:18px}
+.rate{display:grid;grid-template-columns:3.2em 1fr 3em;gap:10px;align-items:center;font-size:15px}
+.rate .bar{height:6px;background:rgba(239,230,207,.12);border-radius:3px;overflow:hidden}
+.rate .bar i{display:block;height:100%;background:var(--c)}
+.rate b{color:var(--c);letter-spacing:.1em}
+.rate span{text-align:right;color:rgba(239,230,207,.75);font-variant-numeric:tabular-nums}
+.r-heaven{--c:var(--heaven);--rgb:245,192,74}
+.r-earth{--c:var(--earth);--rgb:176,124,255}
+.r-human{--c:var(--human);--rgb:79,214,208}
+.pity{padding:12px 0 14px;margin-bottom:12px;border-top:1px solid rgba(239,230,207,.14);border-bottom:1px solid rgba(239,230,207,.14)}
+.pity-head{display:flex;justify-content:space-between;font-size:14px;margin-bottom:9px;gap:10px}
+.pity-head b{color:var(--heaven)}
+.pips{display:grid;grid-template-columns:repeat(10,1fr);gap:4px}
+.pips i{height:8px;border-radius:2px;background:rgba(239,230,207,.14)}
+.pips i.on{background:var(--heaven);box-shadow:0 0 6px rgba(245,192,74,.6)}
+.roster h3{margin:12px 0 6px;font-size:13px;font-weight:600;color:var(--c);letter-spacing:.2em}
+.roster .chips{display:flex;flex-wrap:wrap;gap:5px}
+.rchip{font-size:13px;padding:3px 9px;border-radius:2px;border:1px solid rgba(var(--rgb),.7);color:var(--c)}
+.rchip.miss{opacity:.38;border-style:dashed}
+.draw-action{pointer-events:none;align-self:flex-end;display:flex;flex-direction:column;align-items:center;gap:10px;margin:0 18px 14px 0}
+.draw-action .own{font-size:14px;color:rgba(239,230,207,.8);background:rgba(10,18,16,.7);padding:4px 14px;border-radius:999px}
+.seal-btn{pointer-events:auto;width:138px;height:138px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  background:radial-gradient(circle at 35% 28%,var(--cinnabar-l),var(--cinnabar) 55%,#7e211a);color:#f7e9d4;
+  box-shadow:0 0 0 4px rgba(247,233,212,.18),0 0 0 7px rgba(185,56,43,.55),0 14px 34px rgba(0,0,0,.55);transition:transform .18s,filter .2s}
+.seal-btn:hover{transform:scale(1.05)}
+.seal-btn:active{transform:scale(.97)}
+.seal-btn .t1{font-size:34px;font-weight:900;letter-spacing:.12em}
+.seal-btn .t2{font-size:14px;opacity:.92}
+.seal-btn[aria-disabled="true"]{filter:grayscale(.85) brightness(.7)}
+.shake{animation:shake .4s}
+@keyframes shake{20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+
+/* ---------- 圖片容器 ---------- */
+.art{position:relative;overflow:hidden;background:#0d1715}
+.art img{position:absolute;inset:0;width:100%;height:100%;display:block}
+.art .art-bg{object-fit:cover;filter:blur(14px) brightness(.75) saturate(1.1);transform:scale(1.25)}
+.art .art-fg{object-fit:contain}
+.art.cover .art-fg{object-fit:cover}
+.art.locked img{filter:grayscale(1) brightness(.16) contrast(1.2)}
+
+/* ---------- 藏寶閣 ---------- */
+.gallery{display:flex}
+.gl-stage{flex:1;position:relative;min-width:0;background:
+  radial-gradient(ellipse at 50% 78%,rgba(95,181,157,.16),transparent 58%),linear-gradient(180deg,rgba(8,14,13,.25),rgba(8,14,13,.7))}
+.gl-host{position:absolute;inset:0;cursor:grab}
+.gl-host:active{cursor:grabbing}
+.gl-host canvas{width:100%;height:100%;display:block}
+.gl-caption{position:absolute;left:24px;top:20px;pointer-events:none;display:grid;gap:6px;font-size:15px}
+.gl-caption .row{display:flex;align-items:center;gap:10px}
+.gl-caption .row b{font-size:22px;font-weight:900;letter-spacing:.12em}
+.gl-caption .tag{font-size:12px;padding:1px 8px;border:1px solid var(--c);color:var(--c);border-radius:2px}
+.gl-caption .kind{color:rgba(239,230,207,.55);font-size:13px;width:2.4em}
+.gl-empty{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;text-align:center;gap:16px;
+  background:rgba(8,14,13,.6);padding:24px}
+.gl-empty p{margin:0;line-height:1.9;font-size:17px}
+.btn-solid{padding:10px 26px;background:var(--cinnabar);color:#f7e9d4;border-radius:3px;letter-spacing:.2em;font-weight:700;transition:filter .2s}
+.btn-solid:hover{filter:brightness(1.15)}
+.gl-notice{position:absolute;left:50%;bottom:78px;transform:translateX(-50%);max-width:min(620px,86%);font-size:13.5px;line-height:1.7;
+  background:rgba(120,70,20,.88);border:1px solid var(--gold);padding:8px 14px;border-radius:3px;text-align:center}
+.gl-controls{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);display:flex;gap:8px;padding:7px;
+  background:rgba(10,18,16,.8);border:1px solid rgba(217,178,90,.35);border-radius:4px;backdrop-filter:blur(6px);white-space:nowrap}
+.gl-controls button{padding:7px 14px;font-size:14px;border:1px solid rgba(239,230,207,.25);border-radius:3px;transition:all .2s}
+.gl-controls button:hover{border-color:var(--gold);color:var(--gold)}
+.gl-controls button[aria-pressed="true"]{background:var(--cinnabar);border-color:var(--cinnabar);color:#f7e9d4}
+.gl-hint{position:absolute;right:20px;top:20px;font-size:13px;color:rgba(239,230,207,.5);pointer-events:none}
+.gl-side{width:330px;flex:none;display:flex;flex-direction:column;background:rgba(8,14,13,.86);border-left:1px solid rgba(217,178,90,.3)}
+.gl-tabs{display:flex;border-bottom:1px solid rgba(239,230,207,.14)}
+.gl-tab{flex:1;padding:15px 0;font-size:16px;letter-spacing:.2em;color:rgba(239,230,207,.6);border-bottom:3px solid transparent}
+.gl-tab small{display:block;font-size:12px;letter-spacing:.05em;opacity:.8;margin-top:2px}
+.gl-tab.active{color:var(--paper);border-bottom-color:var(--cinnabar);background:rgba(239,230,207,.05)}
+.gl-list{flex:1;overflow:auto;padding:6px 12px 18px}
+.gl-list h4{margin:14px 4px 6px;font-size:13px;font-weight:600;letter-spacing:.2em;color:var(--c)}
+.gl-item{width:100%;display:flex;align-items:center;gap:12px;padding:7px 8px;margin-bottom:5px;border:1px solid rgba(239,230,207,.1);border-radius:3px;text-align:left;
+  background:rgba(239,230,207,.03);transition:background .2s,border-color .2s}
+.gl-item .thumb{width:46px;height:56px;flex:none;border:1px solid rgba(var(--rgb),.7)}
+.gl-item .nm{flex:1;min-width:0;font-size:16px;font-weight:600}
+.gl-item .st{font-size:12px;color:rgba(239,230,207,.55)}
+.gl-item:not(.locked):hover{background:rgba(239,230,207,.09);border-color:rgba(var(--rgb),.8)}
+.gl-item.sel{border-color:var(--c);background:rgba(var(--rgb),.12)}
+.gl-item.sel .st{color:var(--c)}
+.gl-item.locked{cursor:not-allowed}
+.gl-item.locked .nm{color:rgba(239,230,207,.5)}
+
+/* ---------- 登入彈窗 ---------- */
+.login{position:fixed;inset:0;z-index:60;display:grid;place-items:center;background:rgba(5,9,8,.72);backdrop-filter:blur(7px);padding:20px}
+.scroll{width:min(460px,100%);position:relative;padding:42px 38px 34px;color:var(--paper-ink);
+  background:linear-gradient(90deg,#d9cba5,#efe6cf 12%,#efe6cf 88%,#d9cba5);box-shadow:0 24px 70px rgba(0,0,0,.7);border-radius:2px}
+.scroll::before,.scroll::after{content:"";position:absolute;left:-14px;right:-14px;height:20px;border-radius:10px;
+  background:linear-gradient(180deg,#6c4a26,#3a2814 60%,#6c4a26);box-shadow:0 4px 10px rgba(0,0,0,.45)}
+.scroll::before{top:-12px}.scroll::after{bottom:-12px}
+.scroll h1{margin:0 0 4px;font-size:30px;font-weight:900;letter-spacing:.22em;text-align:center}
+.scroll .lead{margin:0 0 24px;text-align:center;font-size:15px;color:#5a4d34}
+.scroll label{display:block;font-size:14px;color:#5a4d34;margin-bottom:4px}
+.scroll input{width:100%;font:inherit;font-size:22px;padding:6px 4px;background:transparent;border:0;border-bottom:2px solid #6c5a37;color:var(--paper-ink);text-align:center;letter-spacing:.1em}
+.scroll input::placeholder{color:#a69874}
+.scroll input:focus-visible{outline:none;border-bottom-color:var(--cinnabar)}
+.login-hint{min-height:2.8em;margin:10px 0 14px;font-size:14px;color:#6b5a30;text-align:center;line-height:1.6}
+.login-hint.err{color:var(--cinnabar)}
+.scroll .btn-solid{width:100%;padding:12px 0;font-size:19px}
+.saves{margin-top:20px;padding-top:14px;border-top:1px dashed #a69874}
+.saves p{margin:0 0 8px;font-size:13px;color:#6b5a30}
+.saves .list{display:flex;flex-wrap:wrap;gap:6px}
+.saves button{padding:4px 12px;border:1px solid #6c5a37;border-radius:2px;font-size:14px;color:var(--paper-ink);transition:background .2s}
+.saves button:hover{background:rgba(108,90,55,.18)}
+
+/* ---------- 抽卡彈窗 ---------- */
+.reveal{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;flex-direction:column;
+  background:rgba(4,8,7,.84);backdrop-filter:blur(5px);overflow:hidden}
+.rv-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:6}
+.rv-stage{position:relative;display:grid;place-items:center;perspective:1200px;width:min(92vw,720px);height:min(54vh,520px)}
+.rv-rays,.rv-rays2,.rv-glow{position:absolute;left:50%;top:50%;pointer-events:none}
+.rv-rays,.rv-rays2{width:150vmax;height:150vmax;margin:-75vmax 0 0 -75vmax;
+  background:repeating-conic-gradient(rgba(var(--rgb),.5) 0 3.5deg,transparent 3.5deg 15deg);
+  -webkit-mask-image:radial-gradient(circle,#000 0%,rgba(0,0,0,.65) 9%,transparent 22%);mask-image:radial-gradient(circle,#000 0%,rgba(0,0,0,.65) 9%,transparent 22%)}
+.rv-rays2{background:repeating-conic-gradient(rgba(255,244,200,.55) 0 1.5deg,transparent 1.5deg 9deg)}
+.rv-glow{width:min(80vmin,620px);height:min(80vmin,620px);margin:calc(min(80vmin,620px)/-2) 0 0 calc(min(80vmin,620px)/-2);border-radius:50%;
+  background:radial-gradient(circle,rgba(var(--rgb),.95) 0%,rgba(var(--rgb),.38) 34%,transparent 66%)}
+.rv-sparks{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none}
+.spark{position:absolute;width:7px;height:7px;margin:-3px;border-radius:50%;background:var(--c);box-shadow:0 0 10px 3px rgba(var(--rgb),.9)}
+.rv-card{position:relative;height:min(44vh,430px);aspect-ratio:3/4;z-index:3;border:3px solid var(--c);border-radius:6px;
+  box-shadow:0 0 46px 6px rgba(var(--rgb),.6),0 18px 40px rgba(0,0,0,.6);background:#0d1715}
+.rv-card .art{position:absolute;inset:0;border-radius:3px}
+.rv-card::after{content:"";position:absolute;inset:8px;border:1px solid rgba(var(--rgb),.75);border-radius:3px;pointer-events:none}
+.rv-badge{position:absolute;left:12px;top:12px;z-index:2;writing-mode:vertical-rl;padding:8px 5px;background:var(--c);color:#14110a;font-weight:900;font-size:19px;letter-spacing:.2em;border-radius:2px}
+.rv-info{position:relative;z-index:3;text-align:center;margin-top:18px;min-height:150px}
+.rv-name{font-size:clamp(28px,4.6vh,42px);font-weight:900;letter-spacing:.2em;margin:0;text-shadow:0 2px 18px rgba(0,0,0,.8)}
+.rv-meta{margin:6px 0 0;display:flex;justify-content:center;gap:10px;align-items:center;font-size:16px}
+.rv-meta b{color:var(--c);letter-spacing:.3em;font-size:18px}
+.rv-tag{font-size:13px;padding:2px 10px;border-radius:2px;border:1px solid rgba(239,230,207,.45)}
+.rv-tag.new{border-color:var(--cinnabar-l);background:var(--cinnabar);color:#f7e9d4}
+.rv-tag.pity{border-color:var(--gold);color:var(--gold)}
+.rv-btns{margin-top:16px;display:flex;gap:12px;justify-content:center;opacity:0;pointer-events:none;transition:opacity .3s}
+.reveal.ready .rv-btns{opacity:1;pointer-events:auto}
+.rv-btns .btn-ghost{padding:10px 26px;font-size:16px}
+.rv-btns .btn-solid[aria-disabled="true"]{filter:grayscale(.9) brightness(.7)}
+.rv-skip{position:absolute;bottom:14px;font-size:13px;color:rgba(239,230,207,.45);z-index:3}
+.reveal[data-rar="heaven"] .rv-name{background:linear-gradient(180deg,#fff2c0,#f5c04a 55%,#c8902a);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* ---------- Toast ---------- */
+#toasts{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:80;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
+.toast{padding:9px 20px;background:rgba(10,18,16,.94);border:1px solid rgba(217,178,90,.6);border-radius:3px;font-size:15px;animation:toast 2.8s forwards}
+.toast.warn{border-color:var(--cinnabar-l)}
+@keyframes toast{0%{opacity:0;transform:translateY(10px)}10%,82%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-6px)}}
+
+@media (max-width:980px){
+  .side{width:118px}.nav-btn{font-size:17px;padding:14px 12px 14px 16px;letter-spacing:.15em}
+  .draw-panel{width:280px}.gl-side{width:260px}.vtitle{display:none}.top-right .lbl{display:none}
+}
+@media (prefers-reduced-motion:reduce){.mist{animation:none}.toast{animation-duration:2s}}
+</style>
+</head>
+
+<body>
+<noscript>本遊戲需要啟用 JavaScript 才能運行。</noscript>
+
+<!-- 水墨背景 -->
+<div id="scene-bg" aria-hidden="true">
+  <div class="moon"></div>
+  <svg viewBox="0 0 1600 600" preserveAspectRatio="xMidYMax slice">
+    <defs>
+      <filter id="ink" x="-5%" y="-5%" width="110%" height="110%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.012 0.02" numOctaves="3" seed="4" result="n"/>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="16"/>
+      </filter>
+      <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#2c4a43" stop-opacity=".75"/><stop offset="1" stop-color="#14282a" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <path filter="url(#ink)" fill="url(#fade)" d="M0,370 C100,320 160,290 240,330 S380,250 470,290 S620,220 720,280 S900,320 1000,250 S1180,190 1280,260 S1480,310 1600,240 L1600,600 L0,600Z"/>
+    <path filter="url(#ink)" fill="#16302d" opacity=".82" d="M0,452 C120,402 220,362 320,412 S520,332 640,402 S840,302 960,382 S1180,332 1300,402 S1500,382 1600,422 L1600,600 L0,600Z"/>
+    <path filter="url(#ink)" fill="#0d1a18" d="M0,522 C150,492 260,472 380,507 S620,452 760,502 S1000,472 1140,517 S1420,482 1600,522 L1600,600 L0,600Z"/>
+  </svg>
+  <div class="mist m2"></div>
+  <div class="mist m1"></div>
+</div>
+
+<!-- 主程式畫面 -->
+<div id="app" class="app" hidden>
+  <header class="topbar">
+    <button id="brand" class="brand" type="button" aria-label="回到首頁">
+      <span class="seal">仙</span>
+      <span class="brand-text"><b>凡人修仙傳</b><i>尋仙緣</i></span>
+    </button>
+    <div class="top-right">
+      <div class="chip"><span class="lbl">道號</span><span id="hud-name"></span></div>
+      <div class="chip" title="每 1 分鐘自動獲得 100 靈石">
+        <span class="stone-icon" aria-hidden="true"></span>
+        <span id="hud-stones" aria-label="靈石數量">0</span>
+        <span class="idle">下次 <span id="hud-idle">1:00</span></span>
+        <span class="idle-bar"><i id="hud-idle-bar"></i></span>
+      </div>
+      <button id="btn-logout" class="btn-ghost" type="button">切換帳號</button>
+    </div>
+  </header>
+
+  <div class="shell">
+    <nav class="side" aria-label="主選單">
+      <button class="nav-btn" data-view="draw" type="button">尋仙緣</button>
+      <button class="nav-btn" data-view="gallery" type="button">藏寶閣</button>
+    </nav>
+
+    <main class="main">
+      <!-- 首頁 -->
+      <section id="view-home" class="view home">
+        <div class="home-left">
+          <p class="home-hello">道友 <em id="home-name"></em>，<br>赴大晉之前，先尋一段仙緣。</p>
+          <p class="home-note">開著網頁修行，每 1 分鐘自有 100 靈石入袋。<br>同一卡池連抽 10 次，第 10 次必出天品。</p>
+          <div class="entry-row">
+            <button class="entry" data-go="draw" type="button"><b>尋仙緣</b><span>人物池與武器池，每抽 100 靈石</span></button>
+            <button class="entry" data-go="gallery" type="button"><b>藏寶閣</b><span>3D 立牌，人與寶器同台</span></button>
+          </div>
+          <div class="home-stats">
+            <span>人物<b id="home-chars">0</b>/12</span>
+            <span>武器<b id="home-weapons">0</b>/20</span>
+          </div>
+        </div>
+        <div class="vtitle" aria-hidden="true">
+          <div class="big">尋仙緣</div>
+          <div class="small">凡人修仙傳</div>
+          <div class="stamp">緣</div>
+        </div>
+      </section>
+
+      <!-- 尋仙緣 -->
+      <section id="view-draw" class="view" hidden>
+        <div id="collage" class="collage"></div>
+        <div class="collage-veil"></div>
+        <div class="draw-ui">
+          <aside class="draw-panel">
+            <div class="pool-tabs" role="tablist">
+              <button class="pool-tab active" role="tab" data-pool="char" type="button">人物池</button>
+              <button class="pool-tab" role="tab" data-pool="weapon" type="button">武器池</button>
+            </div>
+            <h2 id="pool-title">人物池</h2>
+            <p class="sub muted" id="pool-sub"></p>
+            <div class="rates">
+              <div class="rate r-heaven"><b>天品</b><div class="bar"><i style="width:5%"></i></div><span>5%</span></div>
+              <div class="rate r-earth"><b>地品</b><div class="bar"><i style="width:25%"></i></div><span>25%</span></div>
+              <div class="rate r-human"><b>人品</b><div class="bar"><i style="width:70%"></i></div><span>70%</span></div>
+            </div>
+            <div class="pity">
+              <div class="pity-head"><span>天品保底</span><b id="pity-text"></b></div>
+              <div class="pips" id="pity-pips"></div>
+            </div>
+            <div class="roster" id="roster"></div>
+          </aside>
+          <div class="draw-action">
+            <div class="own" id="draw-own"></div>
+            <button id="btn-draw" class="seal-btn" type="button"><span class="t1">單抽</span><span class="t2">100 靈石</span></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 藏寶閣 -->
+      <section id="view-gallery" class="view gallery" hidden>
+        <div class="gl-stage">
+          <div id="gl-host" class="gl-host"></div>
+          <div id="gl-caption" class="gl-caption"></div>
+          <div class="gl-hint">拖曳旋轉　滾輪縮放</div>
+          <div id="gl-empty" class="gl-empty" hidden>
+            <p id="gl-empty-text">尚未取得任何角色或武器。<br>先到尋仙緣抽一抽，再回來擺設立牌。</p>
+            <button class="btn-solid" id="gl-goto-draw" type="button">前往尋仙緣</button>
+          </div>
+          <div id="gl-notice" class="gl-notice" hidden></div>
+          <div class="gl-controls">
+            <button id="gl-fight" type="button" aria-pressed="false">揮舞戰鬥</button>
+            <button id="gl-rotate" type="button" aria-pressed="false">自動旋轉</button>
+            <button id="gl-reset" type="button">重置視角</button>
+            <button id="gl-unequip" type="button">卸下武器</button>
+          </div>
+        </div>
+        <aside class="gl-side">
+          <div class="gl-tabs" role="tablist">
+            <button class="gl-tab active" role="tab" data-gtab="char" type="button">已解鎖角色<small id="gt-char"></small></button>
+            <button class="gl-tab" role="tab" data-gtab="weapon" type="button">已解鎖武器<small id="gt-weapon"></small></button>
+          </div>
+          <div id="gl-list" class="gl-list"></div>
+        </aside>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- 登入彈窗 -->
+<div id="login" class="login" role="dialog" aria-modal="true" aria-labelledby="login-title">
+  <form id="login-form" class="scroll" autocomplete="off">
+    <h1 id="login-title">入道登記</h1>
+    <p class="lead">請留下道號。道號已有存檔則讀取，沒有則新建。</p>
+    <label for="login-name">遊戲暱稱</label>
+    <input id="login-name" type="text" maxlength="12" placeholder="例如：韓跑跑" spellcheck="false">
+    <p id="login-hint" class="login-hint" aria-live="polite"></p>
+    <button type="submit" class="btn-solid">踏入仙途</button>
+    <div id="saves" class="saves" hidden>
+      <p>本機存檔</p>
+      <div id="saves-list" class="list"></div>
+    </div>
+  </form>
+</div>
+
+<!-- 抽卡全螢幕彈窗 -->
+<div id="reveal" class="reveal" role="dialog" aria-modal="true" aria-label="抽卡結果" hidden>
+  <div class="rv-flash" id="rv-flash"></div>
+  <div class="rv-stage" id="rv-stage">
+    <div class="rv-rays" id="rv-rays"></div>
+    <div class="rv-rays2" id="rv-rays2"></div>
+    <div class="rv-glow" id="rv-glow"></div>
+    <div class="rv-sparks" id="rv-sparks"></div>
+    <div class="rv-card" id="rv-card"></div>
+  </div>
+  <div class="rv-info" id="rv-info">
+    <h2 class="rv-name" id="rv-name"></h2>
+    <div class="rv-meta" id="rv-meta"></div>
+    <div class="rv-btns">
+      <button class="btn-ghost" id="rv-close" type="button">收下</button>
+      <button class="btn-solid" id="rv-again" type="button">再抽一次（100 靈石）</button>
+    </div>
+  </div>
+  <div class="rv-skip" id="rv-skip">點擊畫面可跳過動畫</div>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+
+<script>
+/* =========================================================
+   《凡人修仙傳：尋仙緣》
+   ========================================================= */
+'use strict';
+
+/* ---------- 常數與資料庫 ---------- */
+const COST = 100;
+const START_STONES = 1000;
+const IDLE_MS = 60 * 1000;
+const IDLE_GAIN = 100;
+const PITY_LIMIT = 10;              // 連續 9 抽未出天品，第 10 抽必出天品
+const STORE_KEY = 'fanren_xunxianyuan_v1';
+const LAST_KEY  = 'fanren_xunxianyuan_last';
+const REDUCE = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const RARITY = {
+  heaven: { key:'heaven', name:'天品', color:'#f5c04a', rgb:'245,192,74', order:0 },
+  earth:  { key:'earth',  name:'地品', color:'#b07cff', rgb:'176,124,255', order:1 },
+  human:  { key:'human',  name:'人品', color:'#4fd6d0', rgb:'79,214,208',  order:2 }
+};
+const RARITY_KEYS = ['heaven','earth','human'];
+
+/* alt：備用圖片路徑（規格書的檔名與素材包檔名不同時會自動改用） */
+const CHARACTERS = [
+  { id:'char_01', rarity:'heaven', name:'韓立',     img:'./images/characters/han_li.png' },
+  { id:'char_02', rarity:'heaven', name:'南宮婉',   img:'./images/characters/nangong_wan.png' },
+  { id:'char_03', rarity:'heaven', name:'紫靈仙子', img:'./images/characters/zi_ling.png' },
+  { id:'char_04', rarity:'heaven', name:'銀月',     img:'./images/characters/yin_yue.png' },
+  { id:'char_05', rarity:'earth',  name:'程天坤',   img:'./images/characters/cheng_tiankun.png' },
+  { id:'char_06', rarity:'earth',  name:'大衍神君', img:'./images/characters/dayan_shenjun.png' },
+  { id:'char_07', rarity:'earth',  name:'宋蒙',     img:'./images/characters/song_meng.png' },
+  { id:'char_08', rarity:'earth',  name:'呂洛',     img:'./images/characters/lv_luo.png' },
+  { id:'char_09', rarity:'human',  name:'厲飛雨',   img:'./images/characters/li_feiyu.png' },
+  { id:'char_10', rarity:'human',  name:'辛如音',   img:'./images/characters/xin_ruyin.png' },
+  { id:'char_11', rarity:'human',  name:'張鐵',     img:'./images/characters/zhang_tie.png' },
+  { id:'char_12', rarity:'human',  name:'陳巧倩',   img:'./images/characters/chen_qiaoqian.png' }
+];
+const WEAPONS = [
+  { id:'wpn_01', rarity:'heaven', name:'青竹蜂雲劍', img:'./images/weapons/qingzhu_sword.png' },
+  { id:'wpn_02', rarity:'heaven', name:'掌天瓶',     img:'./images/weapons/zhangtian_bottle.png' },
+  { id:'wpn_03', rarity:'heaven', name:'烏金刃',     img:'./images/weapons/wujin_blade.png' },
+  { id:'wpn_04', rarity:'heaven', name:'朱雀環',     img:'./images/weapons/zhuque_ring.png' },
+  { id:'wpn_05', rarity:'earth',  name:'長生劍',     img:'./images/weapons/changsheng_sword.png' },
+  { id:'wpn_06', rarity:'earth',  name:'百天木劍',   img:'./images/weapons/baitian_woodsword.png' },
+  { id:'wpn_07', rarity:'earth',  name:'風雷翅',     img:'./images/weapons/fenglei_wings.png' },
+  { id:'wpn_08', rarity:'earth',  name:'金趞刀',     img:'./images/weapons/jinqu_saber.png' },
+  { id:'wpn_09', rarity:'earth',  name:'青蛟旗',     img:'./images/weapons/qingjiao_flag.png' },
+  { id:'wpn_10', rarity:'earth',  name:'玄天仙籐',   img:'./images/weapons/xuantian_vine.png' },
+  { id:'wpn_11', rarity:'earth',  name:'寒冰珠',     img:'./images/weapons/hanbing_bead.png' },
+  { id:'wpn_12', rarity:'earth',  name:'烈火扇',     img:'./images/weapons/liehuo_fan.png' },
+  { id:'wpn_13', rarity:'earth',  name:'飛天遁地符', img:'./images/weapons/feitian_talisman.png' },
+  { id:'wpn_14', rarity:'earth',  name:'避雷珠',     img:'./images/weapons/bilei_bead.png' },
+  /* 規格書寫 luoyan_talisman.png，素材包實際檔名為 uoyan_talisman.png，兩者皆支援 */
+  { id:'wpn_15', rarity:'human',  name:'羅煙步符',   img:'./images/weapons/uoyan_talisman.png', alt:['./images/weapons/luoyan_talisman.png'] },
+  { id:'wpn_16', rarity:'human',  name:'精鐵長劍',   img:'./images/weapons/jingtie_sword.png' },
+  { id:'wpn_17', rarity:'human',  name:'基礎靈木劍', img:'./images/weapons/lingmu_sword.png' },
+  { id:'wpn_18', rarity:'human',  name:'煉氣期符寶', img:'./images/weapons/fubao.png' },
+  { id:'wpn_19', rarity:'human',  name:'烏金短刃',   img:'./images/weapons/wujin_dagger.png' },
+  { id:'wpn_20', rarity:'human',  name:'青玉佩',     img:'./images/weapons/qingyu_jade.png' }
+];
+CHARACTERS.forEach(i => i.kind = 'char');
+WEAPONS.forEach(i => i.kind = 'weapon');
+const POOLS = { char: CHARACTERS, weapon: WEAPONS };
+const BY_ID = {};
+CHARACTERS.concat(WEAPONS).forEach(i => BY_ID[i.id] = i);
+
+/* ---------- 小工具 ---------- */
+const $  = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n => Number(n).toLocaleString('en-US');
+const clampInt = (v, a, b) => Math.min(b, Math.max(a, Number.isFinite(+v) ? Math.floor(+v) : a));
+const ownedKey = kind => kind === 'char' ? 'chars' : 'weapons';
+
+function imgSrcs(item){ return [item.img].concat(item.alt || []); }
+
+function placeholderURI(item){
+  const c = RARITY[item.rarity].color;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400" viewBox="0 0 300 400">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1c312d"/><stop offset="1" stop-color="#0b1311"/></linearGradient></defs>
+  <rect width="300" height="400" fill="url(#g)"/><rect x="14" y="14" width="272" height="372" fill="none" stroke="${c}" stroke-width="3"/>
+  <text x="150" y="212" text-anchor="middle" font-size="38" font-family="serif" fill="${c}">${esc(item.name)}</text></svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+/* 圖片載入失敗時：依序嘗試備用路徑，最後改用文字名牌 */
+window.__imgFail = function(el){
+  const item = BY_ID[el.dataset.id]; if(!item) return;
+  const tried = +el.dataset.try || 0, list = imgSrcs(item);
+  if(tried + 1 < list.length){ el.dataset.try = tried + 1; el.src = list[tried + 1]; }
+  else { el.onerror = null; el.src = placeholderURI(item); }
+};
+function imgTag(item, cls){
+  return `<img class="${cls}" src="${esc(item.img)}" alt="${cls === 'art-fg' ? esc(item.name) : ''}" data-id="${item.id}" draggable="false" onerror="__imgFail(this)">`;
+}
+/* 卡面：模糊背景 + 完整圖片，讓不同比例的圖片都能完整呈現 */
+function artHTML(item, opt = {}){
+  const bg = opt.bg !== false;
+  return `<div class="art ${bg ? '' : 'cover'} ${opt.locked ? 'locked' : ''} ${opt.cls || ''}">${bg ? imgTag(item,'art-bg') : ''}${imgTag(item,'art-fg')}</div>`;
+}
+
+/* ---------- 存檔系統（LocalStorage） ---------- */
+let store = { version:1, players:{} };
+let storageOK = true;
+let current = null;
+
+const pkey = name => 'u:' + name;
+
+function readStore(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(raw){ const o = JSON.parse(raw); if(o && o.players && typeof o.players === 'object') return o; }
+  }catch(e){ /* 讀取失敗則使用空存檔 */ }
+  return { version:1, players:{} };
+}
+function writeStore(){
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(store)); storageOK = true; }
+  catch(e){ storageOK = false; }
+}
+function newPlayer(name){
+  return { name, stones:START_STONES, pity:{ char:0, weapon:0 }, chars:[], weapons:[], sel:{}, created:Date.now(), updatedAt:Date.now() };
+}
+function normalizePlayer(raw, name){
+  const p = newPlayer(name);
+  if(!raw || typeof raw !== 'object') return p;
+  p.stones = Number.isFinite(+raw.stones) ? Math.max(0, Math.floor(+raw.stones)) : START_STONES;
+  p.pity.char   = clampInt(raw.pity && raw.pity.char,   0, PITY_LIMIT - 1);
+  p.pity.weapon = clampInt(raw.pity && raw.pity.weapon, 0, PITY_LIMIT - 1);
+  const uniq = (arr, pool) => Array.from(new Set((Array.isArray(arr) ? arr : []).filter(id => pool.some(i => i.id === id))));
+  p.chars = uniq(raw.chars, CHARACTERS);
+  p.weapons = uniq(raw.weapons, WEAPONS);
+  const s = raw.sel || {};
+  if(s.char && p.chars.includes(s.char)) p.sel.char = s.char;
+  if(s.weapon === null) p.sel.weapon = null;
+  else if(s.weapon && p.weapons.includes(s.weapon)) p.sel.weapon = s.weapon;
+  p.created = raw.created || Date.now();
+  p.updatedAt = raw.updatedAt || Date.now();
+  return p;
+}
+function persist(){
+  if(!current) return;
+  current.updatedAt = Date.now();
+  store.players[pkey(current.name)] = current;
+  writeStore();
+}
+const owns = id => { const it = BY_ID[id]; return !!it && current[ownedKey(it.kind)].includes(id); };
+
+/* ---------- Toast ---------- */
+function toast(msg, warn){
+  const el = document.createElement('div');
+  el.className = 'toast' + (warn ? ' warn' : '');
+  el.textContent = msg;
+  $('#toasts').appendChild(el);
+  setTimeout(() => el.remove(), 2900);
+}
+
+/* ---------- HUD 與靈石 ---------- */
+let shownStones = 0;
+function renderHUD(animate){
+  $('#hud-name').textContent = current.name;
+  const target = current.stones, el = $('#hud-stones');
+  if(animate && !REDUCE && window.gsap){
+    const o = { v: shownStones };
+    gsap.to(o, { v: target, duration: .5, ease:'power2.out', onUpdate: () => { el.textContent = fmt(Math.round(o.v)); } });
+  } else el.textContent = fmt(target);
+  shownStones = target;
+  const btn = $('#btn-draw');
+  if(btn) btn.setAttribute('aria-disabled', current.stones < COST ? 'true' : 'false');
+  const ag = $('#rv-again');
+  if(ag) ag.setAttribute('aria-disabled', current.stones < COST ? 'true' : 'false');
+  const own = $('#draw-own'); if(own) own.textContent = '持有靈石 ' + fmt(current.stones);
+}
+function addStones(n){
+  current.stones += n;
+  persist();
+  renderHUD(true);
+}
+
+/* ---------- 掛機收益：開著網頁每 1 分鐘 +100 靈石 ---------- */
+let idleTimer = null, nextIdleAt = 0;
+function startIdle(){
+  stopIdle();
+  nextIdleAt = Date.now() + IDLE_MS;
+  idleTimer = setInterval(idleTick, 500);
+  idleTick();
+}
+function stopIdle(){ if(idleTimer){ clearInterval(idleTimer); idleTimer = null; } }
+function idleTick(){
+  if(!current) return;
+  const now = Date.now();
+  if(now >= nextIdleAt){
+    // 分頁被休眠後回來時最多補發 10 分鐘，避免電腦睡眠一整晚造成靈石暴增
+    const ticks = Math.min(10, Math.floor((now - nextIdleAt) / IDLE_MS) + 1);
+    nextIdleAt = now + IDLE_MS - ((now - nextIdleAt) % IDLE_MS);
+    addStones(IDLE_GAIN * ticks);
+    toast('靈石 +' + (IDLE_GAIN * ticks));
+  }
+  const left = Math.max(0, nextIdleAt - now);
+  const sec = Math.ceil(left / 1000);
+  $('#hud-idle').textContent = Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+  $('#hud-idle-bar').style.width = ((1 - left / IDLE_MS) * 100).toFixed(1) + '%';
+}
+
+/* ---------- 登入 / 登出 ---------- */
+function summarizeSave(p){ return `靈石 ${fmt(p.stones)}，人物 ${p.chars.length}/12，武器 ${p.weapons.length}/20`; }
+function refreshLoginHint(){
+  const name = $('#login-name').value.trim(), hint = $('#login-hint');
+  hint.classList.remove('err');
+  if(!name){ hint.textContent = ''; return; }
+  const raw = store.players[pkey(name)];
+  hint.textContent = raw ? '找到存檔：' + summarizeSave(normalizePlayer(raw, name)) : '新道號，入道即贈 ' + fmt(START_STONES) + ' 靈石';
+}
+function renderSaves(){
+  const list = Object.keys(store.players).map(k => store.players[k]).filter(p => p && p.name)
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 8);
+  $('#saves').hidden = !list.length;
+  $('#saves-list').innerHTML = list.map(p => `<button type="button" data-name="${esc(p.name)}">${esc(p.name)}</button>`).join('');
+}
+function showLogin(){
+  $('#app').hidden = true;
+  $('#login').hidden = false;
+  let last = ''; try{ last = localStorage.getItem(LAST_KEY) || ''; }catch(e){}
+  const input = $('#login-name');
+  input.value = last;
+  renderSaves(); refreshLoginHint();
+  setTimeout(() => { input.focus(); input.select(); }, 30);
+}
+function login(rawName){
+  const name = rawName.trim().slice(0, 12);
+  if(!name){
+    const h = $('#login-hint'); h.textContent = '請先輸入暱稱'; h.classList.add('err'); $('#login-name').focus(); return;
+  }
+  const existing = store.players[pkey(name)];
+  const isNew = !existing;
+  current = isNew ? newPlayer(name) : normalizePlayer(existing, name);
+  persist();
+  try{ localStorage.setItem(LAST_KEY, name); }catch(e){}
+  shownStones = current.stones;
+  $('#login').hidden = true;
+  $('#app').hidden = false;
+  renderHUD(false);
+  startIdle();
+  showView('home');
+  toast(isNew ? '新道友入道，賜予 ' + fmt(START_STONES) + ' 靈石' : '歡迎回來，' + name);
+  if(!storageOK) toast('瀏覽器無法寫入本機存檔，關閉頁面後進度將會遺失', true);
+}
+function logout(){
+  if(!current) return;
+  persist();
+  stopIdle();
+  closeReveal(true);
+  Treasure.clear();
+  current = null;
+  showLogin();
+}
+
+/* ---------- 頁面切換 ---------- */
+let view = 'home';
+function showView(v){
+  view = v;
+  ['home','draw','gallery'].forEach(n => { $('#view-' + n).hidden = (n !== v); });
+  $$('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+  if(v === 'home') renderHome();
+  if(v === 'draw') renderDraw(true);
+  if(v === 'gallery'){ ensureSelection(); renderGalleryList(); Treasure.enter(); }
+  else Treasure.leave();
+}
+function renderHome(){
+  $('#home-name').textContent = current.name;
+  $('#home-chars').textContent = current.chars.length;
+  $('#home-weapons').textContent = current.weapons.length;
+}
+
+/* =========================================================
+   尋仙緣（抽卡）
+   ========================================================= */
+let pool = 'char';
+let collageFor = null;
+
+function renderCollage(){
+  if(collageFor === pool) return;
+  collageFor = pool;
+  const list = POOLS[pool], cols = pool === 'char' ? 4 : 5;
+  const c = $('#collage');
+  c.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  c.innerHTML = list.map(i => `<img src="${esc(i.img)}" alt="" data-id="${i.id}" loading="lazy" draggable="false" onerror="__imgFail(this)">`).join('');
+}
+function renderDraw(rebuildCollage){
+  if(rebuildCollage){ collageFor = null; }
+  renderCollage();
+  const list = POOLS[pool], key = ownedKey(pool);
+  $$('.pool-tab').forEach(b => b.classList.toggle('active', b.dataset.pool === pool));
+  $('#pool-title').textContent = pool === 'char' ? '人物池' : '武器池';
+  $('#pool-sub').textContent = `收錄 ${list.length} ${pool === 'char' ? '位人物' : '件武器'}，已收藏 ${current[key].length}`;
+  const pity = current.pity[pool];
+  const left = PITY_LIMIT - pity;
+  $('#pity-text').textContent = left <= 1 ? '下一抽必出天品' : `再 ${left} 抽內必出天品`;
+  $('#pity-pips').innerHTML = Array.from({ length: PITY_LIMIT }, (_, i) => `<i class="${i < pity ? 'on' : ''}"></i>`).join('');
+  $('#roster').innerHTML = RARITY_KEYS.map(r => {
+    const items = list.filter(i => i.rarity === r);
+    return `<div class="r-${r}"><h3>${RARITY[r].name}</h3><div class="chips">` +
+      items.map(i => `<span class="rchip ${current[key].includes(i.id) ? '' : 'miss'}">${esc(i.name)}</span>`).join('') + `</div></div>`;
+  }).join('');
+  renderHUD(false);
+}
+
+/* 抽卡邏輯：天品 5% / 地品 25% / 人品 70%，連續 9 抽未出天品則第 10 抽必出天品 */
+function rollRarity(kind){
+  const p = current.pity[kind];
+  let rar, forced = false;
+  if(p >= PITY_LIMIT - 1){ rar = 'heaven'; forced = true; }
+  else {
+    const x = Math.random() * 100;
+    rar = x < 5 ? 'heaven' : (x < 30 ? 'earth' : 'human');
+  }
+  current.pity[kind] = rar === 'heaven' ? 0 : p + 1;
+  return { rar, forced };
+}
+function pickItem(kind, rar){
+  const list = POOLS[kind].filter(i => i.rarity === rar);
+  return list[Math.floor(Math.random() * list.length)];
+}
+let animating = false;
+function doDraw(){
+  if(!current || animating) return;
+  if(current.stones < COST){
+    toast('靈石不足，需要 ' + COST + ' 靈石。每 1 分鐘可自動獲得 ' + IDLE_GAIN + '。', true);
+    const b = $('#btn-draw'); b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
+    return;
+  }
+  const kind = pool;
+  current.stones -= COST;
+  const { rar, forced } = rollRarity(kind);
+  const item = pickItem(kind, rar);
+  const key = ownedKey(kind);
+  const isNew = !current[key].includes(item.id);
+  if(isNew) current[key].push(item.id);
+  persist();
+  renderHUD(true);
+  playReveal(item, { isNew, forced, rar });
+}
+
+/* ---------- 抽卡全螢幕彈窗與光芒特效 ---------- */
+let rvTl = null, rvSpin = [];
+function killReveal(){
+  if(rvTl){ rvTl.kill(); rvTl = null; }
+  rvSpin.forEach(t => t.kill()); rvSpin = [];
+  $('#rv-sparks').innerHTML = '';
+}
+function playReveal(item, { isNew, forced, rar }){
+  const R = RARITY[rar], rv = $('#reveal');
+  killReveal();
+  rv.style.setProperty('--c', R.color);
+  rv.style.setProperty('--rgb', R.rgb);
+  rv.dataset.rar = rar;
+  rv.classList.remove('ready');
+  rv.hidden = false;
+  animating = true;
+
+  $('#rv-card').innerHTML = artHTML(item) + `<span class="rv-badge">${R.name}</span>`;
+  $('#rv-name').textContent = item.name;
+  $('#rv-meta').innerHTML =
+    `<span>${item.kind === 'char' ? '人物' : '武器'}</span><b>${R.name}</b>` +
+    (isNew ? '<span class="rv-tag new">新獲得</span>' : '<span class="rv-tag">已擁有</span>') +
+    (forced ? '<span class="rv-tag pity">保底觸發</span>' : '');
+  renderHUD(false);
+
+  const els = { flash:'#rv-flash', rays:'#rv-rays', rays2:'#rv-rays2', glow:'#rv-glow', card:'#rv-card', info:'#rv-info', stage:'#rv-stage' };
+  gsap.set(els.rays,  { opacity:0, scale:.15, rotation:0 });
+  gsap.set(els.rays2, { opacity:0, scale:.15, rotation:0, display: rar === 'heaven' ? 'block' : 'none' });
+  gsap.set(els.glow,  { opacity:0, scale:.1 });
+  gsap.set(els.card,  { opacity:0, scale:.35, rotationY:-100, y:40 });
+  gsap.set(els.info,  { opacity:0, y:22 });
+  gsap.set(els.flash, { opacity:0 });
+  gsap.set(els.stage, { x:0 });
+  $('#rv-skip').hidden = false;
+
+  const k = rar === 'heaven' ? 1.3 : (rar === 'earth' ? 1 : .75);
+  const tl = gsap.timeline({ onComplete: finishReveal });
+  rvTl = tl;
+  tl.to(els.glow, { opacity:1, scale:1, duration:.8 * k, ease:'power2.out' }, 0)
+    .to(els.rays, { opacity:1, scale:1, duration:1 * k, ease:'power2.out' }, .1);
+  if(rar === 'heaven'){
+    tl.to(els.rays2, { opacity:1, scale:1, duration:1 * k, ease:'power2.out' }, .2)
+      .to(els.stage, { x:6, duration:.05, yoyo:true, repeat:9, ease:'none' }, '>-.25')
+      .to(els.flash, { opacity:.95, duration:.12, ease:'power1.in' }, '>')
+      .to(els.flash, { opacity:0, duration:.7, ease:'power2.out' }, '>');
+  } else if(rar === 'earth'){
+    tl.to(els.glow, { scale:1.12, duration:.22, yoyo:true, repeat:1, ease:'sine.inOut' }, '>-.1')
+      .to(els.flash, { opacity:.28, duration:.1 }, '>-.3')
+      .to(els.flash, { opacity:0, duration:.4 }, '>');
+  } else {
+    tl.to(els.glow, { scale:1.06, duration:.18, yoyo:true, repeat:1, ease:'sine.inOut' }, '>-.05');
+  }
+  tl.add(() => burst(rar === 'heaven' ? 46 : (rar === 'earth' ? 28 : 16)), '>-.2')
+    .to(els.card, { opacity:1, scale:1, rotationY:0, y:0, duration:.85, ease:'back.out(1.4)' }, '<')
+    .to(els.info, { opacity:1, y:0, duration:.5, ease:'power2.out' }, '>-.2');
+
+  rvSpin.push(gsap.to(els.rays,  { rotation:360,  duration:26, repeat:-1, ease:'none' }));
+  rvSpin.push(gsap.to(els.rays2, { rotation:-360, duration:38, repeat:-1, ease:'none' }));
+  if(REDUCE) tl.timeScale(4);
+}
+function burst(n){
+  const host = $('#rv-sparks');
+  for(let i = 0; i < n; i++){
+    const s = document.createElement('div');
+    s.className = 'spark';
+    host.appendChild(s);
+    const a = Math.random() * Math.PI * 2, d = 140 + Math.random() * 260;
+    gsap.fromTo(s, { x:0, y:0, opacity:1, scale:.4 + Math.random() },
+      { x:Math.cos(a) * d, y:Math.sin(a) * d, opacity:0, scale:0, duration:.9 + Math.random() * .8, ease:'power2.out', onComplete:() => s.remove() });
+  }
+}
+function finishReveal(){
+  animating = false;
+  $('#reveal').classList.add('ready');
+  $('#rv-skip').hidden = true;
+  $('#rv-sparks').innerHTML = '';
+  renderHUD(false);
+  const b = $('#rv-close'); if(b) b.focus({ preventScroll:true });
+}
+function skipReveal(){
+  if(!animating || !rvTl) return;
+  rvTl.progress(1);              // 直接跳到結尾（onComplete 會觸發 finishReveal）
+}
+function closeReveal(silent){
+  if(!silent && animating){ skipReveal(); return; }
+  killReveal();
+  animating = false;
+  const rv = $('#reveal');
+  rv.hidden = true;
+  rv.classList.remove('ready');
+  if(!silent && current){
+    if(view === 'draw') renderDraw(false);
+    if(view === 'gallery') renderGalleryList();
+    const b = $('#btn-draw'); if(b && view === 'draw') b.focus({ preventScroll:true });
+  }
+}
+
+/* =========================================================
+   藏寶閣（Three.js 3D 立牌）
+   ========================================================= */
+let galTab = 'char';
+
+function ensureSelection(){
+  const s = current.sel;
+  if(!s.char || !owns(s.char)) s.char = (POOLS.char.find(i => owns(i.id)) || {}).id;
+  if(s.weapon === undefined || (s.weapon && !owns(s.weapon))) s.weapon = (POOLS.weapon.find(i => owns(i.id)) || {}).id;
+  if(s.char === undefined) delete s.char;
+  if(s.weapon === undefined) delete s.weapon;
+  persist();
+}
+function renderGalleryList(){
+  const list = POOLS[galTab], key = ownedKey(galTab);
+  $$('.gl-tab').forEach(b => b.classList.toggle('active', b.dataset.gtab === galTab));
+  $('#gt-char').textContent = `${current.chars.length} / ${CHARACTERS.length}`;
+  $('#gt-weapon').textContent = `${current.weapons.length} / ${WEAPONS.length}`;
+  const selId = current.sel[galTab];
+  $('#gl-list').innerHTML = RARITY_KEYS.map(r => {
+    const items = list.filter(i => i.rarity === r);
+    return `<div class="r-${r}"><h4>${RARITY[r].name}</h4>` + items.map(i => {
+      const own = current[key].includes(i.id), sel = own && selId === i.id;
+      return `<button type="button" class="gl-item r-${r} ${own ? '' : 'locked'} ${sel ? 'sel' : ''}" data-id="${i.id}" ${own ? '' : 'disabled aria-disabled="true"'}>
+        <span class="thumb">${artHTML(i, { bg:false, locked:!own })}</span>
+        <span class="nm">${esc(i.name)}<br><span class="st">${own ? (sel ? '使用中' : '點擊選用') : '未取得'}</span></span></button>`;
+    }).join('') + '</div>';
+  }).join('');
+}
+function selectItem(id){
+  const it = BY_ID[id]; if(!it || !owns(id)) return;
+  current.sel[it.kind] = id;
+  persist();
+  renderGalleryList();
+  Treasure.apply();
+}
+
+const Treasure = (() => {
+  let inited = false, failed = false, running = false, raf = 0;
+  let renderer, scene, camera, controls, clock, ring, motes, moteData, ro;
+  let charObj = null, wpnObj = null, token = 0;
+  let fightTarget = 0, fightBlend = 0, tainted = false;
+  const texCache = new Map();
+  let glowTex = null;
+
+  const host = () => $('#gl-host');
+  const lerp = (a, b, t) => a + (b - a) * t;
+
+  function showError(msg){
+    const e = $('#gl-empty');
+    $('#gl-empty-text').innerHTML = msg;
+    $('#gl-goto-draw').hidden = true;
+    e.hidden = false;
+  }
+
+  function radialTex(){
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.35, 'rgba(255,255,255,.4)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    return new THREE.CanvasTexture(c);
+  }
+  function magicCircleTex(){
+    const S = 1024, c = document.createElement('canvas'); c.width = c.height = S;
+    const g = c.getContext('2d'); g.translate(S/2, S/2);
+    g.strokeStyle = 'rgba(217,178,90,.95)'; g.fillStyle = 'rgba(217,178,90,.95)';
+    [[486,5],[458,2],[366,2],[300,2],[180,3]].forEach(([r, w]) => { g.lineWidth = w; g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.stroke(); });
+    for(let i = 0; i < 72; i++){
+      g.save(); g.rotate(i / 72 * Math.PI * 2); g.lineWidth = i % 6 === 0 ? 4 : 1.5;
+      g.beginPath(); g.moveTo(0, -458); g.lineTo(0, i % 6 === 0 ? -420 : -439); g.stroke(); g.restore();
+    }
+    const tri = [7, 3, 5, 1, 6, 2, 4, 0];   // 八卦（陰陽爻）
+    for(let k = 0; k < 8; k++){
+      g.save(); g.rotate(k / 8 * Math.PI * 2);
+      for(let j = 0; j < 3; j++){
+        const y = -(318 + j * 14), yang = (tri[k] >> j) & 1;
+        g.lineWidth = 6;
+        g.beginPath();
+        if(yang){ g.moveTo(-38, y); g.lineTo(38, y); }
+        else { g.moveTo(-38, y); g.lineTo(-8, y); g.moveTo(8, y); g.lineTo(38, y); }
+        g.stroke();
+      }
+      g.restore();
+    }
+    g.lineWidth = 2; g.beginPath();
+    for(let i = 0; i <= 8; i++){ const a = (i * 3 / 8) * Math.PI * 2 - Math.PI / 2; const x = Math.cos(a) * 290, y = Math.sin(a) * 290; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke();
+    const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4; return t;
+  }
+
+  function init(){
+    if(inited) return true;
+    if(failed) return false;
+    if(typeof THREE === 'undefined' || !THREE.OrbitControls){
+      failed = true; showError('3D 元件載入失敗（Three.js / OrbitControls）。<br>請確認網路可連線至 CDN 後重新整理。'); return false;
+    }
+    try{
+      renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+    }catch(e){
+      failed = true; showError('此瀏覽器無法啟用 WebGL，藏寶閣的 3D 場景無法顯示。'); return false;
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    host().appendChild(renderer.domElement);
+
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(45, 1.5, .1, 100);
+    camera.position.set(0, 2.8, 8.6);
+
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true; controls.dampingFactor = .08;
+    controls.enablePan = false;
+    controls.minDistance = 3.5; controls.maxDistance = 15;
+    controls.minPolarAngle = .25; controls.maxPolarAngle = Math.PI * .54;
+    controls.autoRotateSpeed = 1.8;
+    controls.target.set(0, 1.9, 0);
+
+    scene.add(new THREE.AmbientLight(0xffffff, .75));
+    const dl = new THREE.DirectionalLight(0xfff1d0, .9); dl.position.set(3, 6, 5); scene.add(dl);
+
+    glowTex = radialTex();
+    // 地面：靈氣光暈 + 八卦法陣
+    const disc = new THREE.Mesh(new THREE.CircleGeometry(5.2, 64),
+      new THREE.MeshBasicMaterial({ map: glowTex, color: 0x4fb59a, transparent:true, opacity:.55, depthWrite:false, blending:THREE.AdditiveBlending }));
+    disc.rotation.x = -Math.PI / 2; disc.position.y = .005; scene.add(disc);
+    ring = new THREE.Mesh(new THREE.CircleGeometry(4.5, 96),
+      new THREE.MeshBasicMaterial({ map: magicCircleTex(), transparent:true, opacity:.8, depthWrite:false, blending:THREE.AdditiveBlending, side:THREE.DoubleSide }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = .02; scene.add(ring);
+
+    // 飄浮靈氣光點
+    const N = 140, pos = new Float32Array(N * 3); moteData = [];
+    for(let i = 0; i < N; i++){
+      const a = Math.random() * Math.PI * 2, r = 1.2 + Math.random() * 4.2;
+      pos[i*3] = Math.cos(a) * r; pos[i*3+1] = Math.random() * 6; pos[i*3+2] = Math.sin(a) * r;
+      moteData.push({ s: .15 + Math.random() * .35, p: Math.random() * 6.28 });
+    }
+    const mg = new THREE.BufferGeometry(); mg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    motes = new THREE.Points(mg, new THREE.PointsMaterial({ map: glowTex, size:.2, color:0xcff3e4, transparent:true, opacity:.75, depthWrite:false, blending:THREE.AdditiveBlending }));
+    scene.add(motes);
+
+    clock = new THREE.Clock();
+    ro = new ResizeObserver(resize); ro.observe(host());
+    inited = true;
+    return true;
+  }
+
+  function resize(){
+    if(!inited) return;
+    const h = host(), w = h.clientWidth, ht = h.clientHeight;
+    if(!w || !ht) return;
+    renderer.setSize(w, ht, false);
+    camera.aspect = w / ht;
+    camera.fov = camera.aspect < 1.25 ? 60 : 45;
+    camera.updateProjectionMatrix();
+  }
+
+  /* ----- 圖片 → 貼圖（超大圖先縮小，避免佔用過多顯示記憶體） ----- */
+  function loadImage(item){
+    const srcs = imgSrcs(item);
+    return new Promise(res => {
+      let i = 0; const im = new Image();
+      im.onload = () => res(im);
+      im.onerror = () => { i++; if(i < srcs.length) im.src = srcs[i]; else res(null); };
+      im.src = srcs[0];
+    });
+  }
+  function placeholderCanvas(item){
+    const c = document.createElement('canvas'); c.width = 384; c.height = 512;
+    const g = c.getContext('2d'), col = RARITY[item.rarity].color;
+    const gr = g.createLinearGradient(0, 0, 0, 512); gr.addColorStop(0, '#223b36'); gr.addColorStop(1, '#0b1311');
+    g.fillStyle = gr; g.fillRect(0, 0, 384, 512);
+    g.strokeStyle = col; g.lineWidth = 6; g.strokeRect(16, 16, 352, 480); g.lineWidth = 2; g.strokeRect(30, 30, 324, 452);
+    g.fillStyle = col; g.textAlign = 'center';
+    const chars = Array.from(item.name), step = Math.min(66, 380 / chars.length);
+    g.font = `700 ${Math.floor(step * .85)}px "Noto Serif TC","Songti TC",serif`;
+    chars.forEach((ch, i) => g.fillText(ch, 192, 70 + step * (i + .8)));
+    return c;
+  }
+  function getArt(item){
+    if(texCache.has(item.id)) return texCache.get(item.id);
+    const p = (async () => {
+      const im = await loadImage(item);
+      let tex = null, aspect = 3 / 4;
+      if(im){
+        const w = im.naturalWidth, h = im.naturalHeight; aspect = w / h;
+        let src = im; const m = Math.max(w, h);
+        try{
+          if(m > 1024){
+            const s = 1024 / m, c = document.createElement('canvas');
+            c.width = Math.round(w * s); c.height = Math.round(h * s);
+            c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); src = c;
+          }
+          tex = new THREE.Texture(src); tex.encoding = THREE.sRGBEncoding;
+          tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+          tex.needsUpdate = true;
+          renderer.initTexture(tex);     // 提前上傳；若瀏覽器因 file:// 擋下會在此丟出例外
+        }catch(e){
+          if(tex) tex.dispose();
+          tex = null; tainted = true;
+        }
+      }
+      if(!tex){
+        const pc = placeholderCanvas(item);
+        tex = new THREE.CanvasTexture(pc); tex.encoding = THREE.sRGBEncoding; aspect = pc.width / pc.height;
+      }
+      return { tex, aspect };
+    })();
+    texCache.set(item.id, p);
+    return p;
+  }
+
+  /* ----- 立牌：紙面 + 稀有度金屬邊框 + 雙面貼圖（背面不鏡像） ----- */
+  function makeStandee(item, art, maxW, maxH, withBase){
+    let h = maxH, w = h * art.aspect;
+    if(w > maxW){ w = maxW; h = w / art.aspect; }
+    const col = new THREE.Color(RARITY[item.rarity].color);
+    const group = new THREE.Group();
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(w + .16, h + .16, .07),
+      new THREE.MeshStandardMaterial({ color:col, metalness:.65, roughness:.35, emissive:col, emissiveIntensity:.22 }));
+    group.add(frame);
+    const paper = new THREE.MeshBasicMaterial({ color:0xefe8d6 });
+    const artMat = new THREE.MeshBasicMaterial({ map:art.tex, transparent:true, alphaTest:.02 });
+    const geo = new THREE.PlaneGeometry(w, h);
+    [[1, .0356, .0366], [-1, -.0356, -.0366]].forEach(([dir, zp, za]) => {
+      const bg = new THREE.Mesh(geo, paper), im = new THREE.Mesh(geo, artMat);
+      bg.position.z = zp; im.position.z = za;
+      if(dir < 0){ bg.rotation.y = Math.PI; im.rotation.y = Math.PI; }
+      group.add(bg, im);
+    });
+    // 靈氣光暈
+    const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map:glowTex, color:col, transparent:true, opacity:.5, depthWrite:false, blending:THREE.AdditiveBlending }));
+    aura.scale.set(w * 2.1 + 1, h * 1.6 + 1, 1); aura.position.z = -.25; group.add(aura);
+    if(withBase){
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(Math.min(.9, w * .45) + .15, Math.min(.9, w * .45) + .3, .12, 40),
+        new THREE.MeshStandardMaterial({ color:0x2a2418, metalness:.5, roughness:.5, emissive:col, emissiveIntensity:.08 }));
+      base.position.y = -(h / 2 + .14); group.add(base);
+    }
+    return { group, w, h, id:item.id, baseX:0, baseY:0 };
+  }
+  function disposeObj(o){
+    if(!o) return;
+    scene.remove(o.group);
+    o.group.traverse(n => {
+      if(n.geometry) n.geometry.dispose();
+      if(n.material){ (Array.isArray(n.material) ? n.material : [n.material]).forEach(m => m.dispose()); }
+    });
+  }
+  function layout(){
+    const cw = charObj ? charObj.w : 0, ww = wpnObj ? wpnObj.w : 0, gap = cw && ww ? .75 : 0, total = cw + gap + ww;
+    if(charObj){ charObj.baseX = -total / 2 + cw / 2; charObj.baseY = charObj.h / 2 + .42; }
+    if(wpnObj){
+      wpnObj.baseX = total / 2 - ww / 2;
+      wpnObj.baseY = charObj ? Math.max(wpnObj.h / 2 + .7, charObj.h * .5 + .2) : wpnObj.h / 2 + 1.1;
+    }
+  }
+  function popIn(o){
+    o.group.position.set(o.baseX, o.baseY, 0);
+    if(window.gsap && !REDUCE){
+      o.group.scale.set(.01, .01, .01);
+      gsap.to(o.group.scale, { x:1, y:1, z:1, duration:.7, ease:'back.out(1.6)' });
+    }
+  }
+
+  async function apply(){
+    if(!init()) return;
+    const my = ++token, s = current.sel;
+    const cItem = s.char ? BY_ID[s.char] : null, wItem = s.weapon ? BY_ID[s.weapon] : null;
+    const total = current.chars.length + current.weapons.length;
+    $('#gl-empty').hidden = total > 0;
+    $('#gl-goto-draw').hidden = false;
+    $('#gl-empty-text').innerHTML = '尚未取得任何角色或武器。<br>先到尋仙緣抽一抽，再回來擺設立牌。';
+    renderCaption(cItem, wItem);
+
+    const [cArt, wArt] = await Promise.all([cItem ? getArt(cItem) : null, wItem ? getArt(wItem) : null]);
+    if(my !== token || !inited) return;
+
+    let changedC = false, changedW = false;
+    if(!cItem || !charObj || charObj.id !== cItem.id){ disposeObj(charObj); charObj = null; if(cItem){ charObj = makeStandee(cItem, cArt, 3.1, 3.6, true); scene.add(charObj.group); } changedC = true; }
+    if(!wItem || !wpnObj || wpnObj.id !== wItem.id){ disposeObj(wpnObj); wpnObj = null; if(wItem){ wpnObj = makeStandee(wItem, wArt, 2.4, 2.4, false); scene.add(wpnObj.group); } changedW = true; }
+    layout();
+    if(charObj && changedC) popIn(charObj);
+    if(wpnObj && changedW) popIn(wpnObj);
+    if(!changedC && charObj) charObj.group.position.x = charObj.baseX;
+    const n = $('#gl-notice');
+    if(tainted){
+      n.hidden = false;
+      n.textContent = '目前以本機檔案（file://）開啟，瀏覽器禁止 3D 讀取圖片，已改用名牌代替。請透過 GitHub Pages 或本機伺服器開啟即可顯示完整圖片。';
+    } else n.hidden = true;
+  }
+  function renderCaption(c, w){
+    const row = (kind, it) => it
+      ? `<div class="row r-${it.rarity}"><span class="kind">${kind}</span><b>${esc(it.name)}</b><span class="tag">${RARITY[it.rarity].name}</span></div>` : '';
+    $('#gl-caption').innerHTML = row('人物', c) + row('武器', w);
+  }
+
+  function frame(){
+    raf = requestAnimationFrame(frame);
+    const dt = Math.min(clock.getDelta(), .05), t = clock.elapsedTime;
+    fightBlend += (fightTarget - fightBlend) * Math.min(1, dt * 5);
+    const fb = fightBlend;
+    ring.rotation.z += dt * .12;
+
+    const pa = motes.geometry.attributes.position;
+    for(let i = 0; i < moteData.length; i++){
+      let y = pa.array[i*3+1] + moteData[i].s * dt;
+      if(y > 6.2) y = 0;
+      pa.array[i*3+1] = y;
+      pa.array[i*3] += Math.sin(t * .6 + moteData[i].p) * dt * .12;
+    }
+    pa.needsUpdate = true;
+
+    if(charObj){
+      const o = charObj.group;
+      o.position.x = charObj.baseX + Math.sin(t * 34) * .035 * fb;
+      o.position.y = charObj.baseY + Math.sin(t * 1.5) * .07 + Math.abs(Math.sin(t * 5)) * .12 * fb;
+      o.rotation.z = Math.sin(t * 1.1) * .015 + Math.sin(t * 6) * .05 * fb;
+    }
+    if(wpnObj){
+      const o = wpnObj.group;
+      const idleY = Math.sin(t * 1.9 + 1.2) * .2;
+      const cx = charObj ? charObj.baseX : 0, R = Math.max(1.6, Math.abs(wpnObj.baseX - cx));
+      const a = t * 4.2;
+      // 揮舞：武器繞著角色飛舞並上下震動；平時則在角色旁懸浮
+      const ox = cx + Math.cos(a) * R, oz = Math.sin(a) * R * .85, oy = wpnObj.baseY + idleY + Math.sin(a * 2) * .35;
+      o.position.x = lerp(wpnObj.baseX, ox, fb);
+      o.position.y = lerp(wpnObj.baseY + idleY, oy, fb);
+      o.position.z = lerp(0, oz, fb);
+      o.rotation.z = lerp(Math.sin(t * 1.2) * .08, Math.sin(t * 9) * .55, fb);
+      o.rotation.y = lerp(0, Math.sin(a) * .7, fb);
+    }
+    controls.update();
+    renderer.render(scene, camera);
+  }
+
+  function enter(){
+    if(!init()) return;
+    requestAnimationFrame(() => { resize(); });
+    resize();
+    if(!running){ running = true; clock.start(); frame(); }
+    apply();
+  }
+  function leave(){
+    if(running){ running = false; cancelAnimationFrame(raf); }
+  }
+  function clear(){
+    leave();
+    token++;
+    if(inited){ disposeObj(charObj); disposeObj(wpnObj); charObj = wpnObj = null; }
+    fightTarget = fightBlend = 0;
+    $('#gl-fight').setAttribute('aria-pressed', 'false');
+  }
+  function bind(){
+    $('#gl-fight').addEventListener('click', e => {
+      fightTarget = fightTarget ? 0 : 1;
+      e.currentTarget.setAttribute('aria-pressed', String(!!fightTarget));
+    });
+    $('#gl-rotate').addEventListener('click', e => {
+      if(!inited) return;
+      controls.autoRotate = !controls.autoRotate;
+      e.currentTarget.setAttribute('aria-pressed', String(controls.autoRotate));
+    });
+    $('#gl-reset').addEventListener('click', () => {
+      if(!inited) return;
+      if(window.gsap && !REDUCE){
+        gsap.to(camera.position, { x:0, y:2.8, z:8.6, duration:.7, ease:'power2.inOut' });
+        gsap.to(controls.target, { x:0, y:1.9, z:0, duration:.7, ease:'power2.inOut' });
+      } else { camera.position.set(0, 2.8, 8.6); controls.target.set(0, 1.9, 0); }
+    });
+    $('#gl-unequip').addEventListener('click', () => {
+      if(!current || current.sel.weapon === null) return;
+      current.sel.weapon = null; persist(); renderGalleryList(); apply();
+    });
+  }
+  return { enter, leave, clear, apply, bind };
+})();
+
+/* =========================================================
+   事件綁定與啟動
+   ========================================================= */
+function bindEvents(){
+  // 登入
+  $('#login-form').addEventListener('submit', e => { e.preventDefault(); login($('#login-name').value); });
+  $('#login-name').addEventListener('input', refreshLoginHint);
+  $('#saves-list').addEventListener('click', e => {
+    const b = e.target.closest('button[data-name]'); if(!b) return;
+    $('#login-name').value = b.dataset.name; refreshLoginHint(); $('#login-name').focus();
+  });
+  $('#btn-logout').addEventListener('click', logout);
+
+  // 導覽
+  $$('.nav-btn').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
+  $$('[data-go]').forEach(b => b.addEventListener('click', () => showView(b.dataset.go)));
+  $('#brand').addEventListener('click', () => showView('home'));
+
+  // 抽卡
+  $$('.pool-tab').forEach(b => b.addEventListener('click', () => { pool = b.dataset.pool; renderDraw(true); }));
+  $('#btn-draw').addEventListener('click', doDraw);
+  $('#rv-close').addEventListener('click', () => closeReveal(false));
+  $('#rv-again').addEventListener('click', () => {
+    if(current.stones < COST){ toast('靈石不足，需要 ' + COST + ' 靈石。', true); return; }
+    doDraw();
+  });
+  $('#reveal').addEventListener('click', e => { if(animating && !e.target.closest('button')) skipReveal(); });
+
+  // 藏寶閣
+  $$('.gl-tab').forEach(b => b.addEventListener('click', () => { galTab = b.dataset.gtab; renderGalleryList(); }));
+  $('#gl-list').addEventListener('click', e => {
+    const b = e.target.closest('.gl-item'); if(!b || b.disabled) return;
+    selectItem(b.dataset.id);
+  });
+  $('#gl-goto-draw').addEventListener('click', () => showView('draw'));
+  Treasure.bind();
+
+  document.addEventListener('keydown', e => {
+    if(!$('#reveal').hidden){
+      if(e.key === 'Escape'){ closeReveal(false); }
+      else if(animating && (e.key === ' ' || e.key === 'Enter')){ e.preventDefault(); skipReveal(); }
+    }
+  });
+  window.addEventListener('beforeunload', persist);
+  document.addEventListener('visibilitychange', () => { if(document.hidden) persist(); else idleTick(); });
+}
+
+(function boot(){
+  store = readStore();
+  try{ localStorage.setItem('__t', '1'); localStorage.removeItem('__t'); }catch(e){ storageOK = false; }
+  bindEvents();
+  showLogin();
+})();
+</script>
+</body>
+</html>
